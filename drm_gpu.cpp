@@ -17,6 +17,7 @@ DrmGpu::DrmGpu(const QString &device)
 
 DrmGpu::~DrmGpu()
 {
+    drmModeFreeResources(m_resources);
     close(m_fd);
 }
 
@@ -27,16 +28,30 @@ int DrmGpu::fd() const
 
 void DrmGpu::init()
 {
-    drmModeRes *resources = drmModeGetResources(m_fd);
-    if (!resources) {
+    m_resources = drmModeGetResources(m_fd);
+    if (!m_resources) {
         qWarning("drmModeGetResources failed");
         return;
     }
 
-    for (int i = 0; i < resources->count_connectors; ++i) {
-        auto c = new DrmConnector(resources->connectors[i], m_fd);
+    for (int i = 0; i < m_resources->count_connectors; ++i) {
+        auto c = new DrmConnector(m_resources->connectors[i], m_fd);
         m_connectors.append(c);
     }
 
-    drmModeFreeResources(resources);
+}
+
+QList<DrmConnector*> DrmGpu::connectors() const
+{
+    return m_connectors;
+}
+
+void DrmGpu::setBuffer(DrmConnector *connector, DrmBuffer *buffer)
+{
+    if (!connector || !buffer) {
+        return;
+    }
+
+    drmModeSetCrtc(m_fd, m_resources->crtcs[0], buffer->bufferId(), 0, 0, &connector->connector()->connector_id, 1, &connector->connector()->modes[0]);
+    drmModePageFlip(m_fd, m_resources->crtcs[0], buffer->bufferId(), DRM_MODE_PAGE_FLIP_EVENT, buffer);
 }

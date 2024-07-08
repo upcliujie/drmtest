@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-
+#include <QImage>
 
 class DrmBuffer : public QObject
 {
@@ -11,8 +11,20 @@ public:
     ~DrmBuffer();
 
     uint32_t bufferId() const;
+    void init();
+    inline QSize size() const {
+        return m_size;
+    };
+
+    inline QImage image() const {
+        return m_image;
+    };
 
 private:
-    uint32_t m_fd;
-    uint32_t m_bufferId;
+    uint32_t m_fd = 0;
+    uint32_t m_bufferId = 0;
+    QSize m_size;
+    QImage m_image;
+
+    uint32_t m_handle = 0;
 };
