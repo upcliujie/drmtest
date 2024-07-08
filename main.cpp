@@ -18,7 +18,7 @@ struct framebuffer
     uint32_t *vaddr;
 };
 
-static void create_fb(int fd, uint32_t width, uint32_t height, uint32_t color, framebuffer *buf)
+static void create_fb(int fd, uint32_t width, uint32_t height, const QImage& img, framebuffer *buf)
 {
     drm_mode_create_dumb create = {};
     drm_mode_map_dumb map = {};
@@ -37,15 +37,13 @@ static void create_fb(int fd, uint32_t width, uint32_t height, uint32_t color, f
 
     drmIoctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &map);
 
-    QImage img(width, height, QImage::Format_ARGB32_Premultiplied);
-    img.load("/usr/share/backgrounds/glowworm.jpg");
-    img = img.scaled(width, height, Qt::KeepAspectRatio);
+    QImage image = img.scaled(width, height, Qt::KeepAspectRatio).convertToFormat(QImage::Format_ARGB32_Premultiplied);
 
     uint32_t *vaddr = (uint32_t *)mmap(0, create.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map.offset);
 
     for (uint32_t y = 0; y < height; y++) {
         for (uint32_t x = 0; x < width; x++) {
-            vaddr[i++] = img.pixel(x, y);
+            vaddr[i++] = image.pixel(x, y);
         }
     }
 
@@ -72,6 +70,14 @@ static void release_fb(int fd, framebuffer *buf)
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
+
+    // get image file name from command line
+    if (argc < 2) {
+        qDebug() << "Usage: " << argv[0] << " <image file>";
+        return -1;
+    }
+
+    QImage img(argv[1]);
 
     int fd = 0;
     framebuffer buf;
@@ -107,7 +113,7 @@ int main(int argc, char *argv[])
     }
     conn = drmModeGetConnector(fd, conn_id);
 
-    create_fb(fd, conn->modes[0].hdisplay, conn->modes[0].vdisplay, 0x00ff0000, &buf);
+    create_fb(fd, conn->modes[0].hdisplay, conn->modes[0].vdisplay, img, &buf);
     drmModeSetCrtc(fd, crtc_id, buf.fb_id, 0, 0, &conn_id, 1, &conn->modes[0]);
     drmModePageFlip(fd, crtc_id, buf.fb_id, DRM_MODE_PAGE_FLIP_EVENT, &conn_id);
 
