@@ -109,20 +109,15 @@ int main(int argc, char *argv[])
 
     create_fb(fd, conn->modes[0].hdisplay, conn->modes[0].vdisplay, 0x00ff0000, &buf);
     drmModeSetCrtc(fd, crtc_id, buf.fb_id, 0, 0, &conn_id, 1, &conn->modes[0]);
+    drmModePageFlip(fd, crtc_id, buf.fb_id, DRM_MODE_PAGE_FLIP_EVENT, &conn_id);
 
-    int i = 0;
-    while (true) {
-        drmModePageFlip(fd, crtc_id, buf.fb_id, DRM_MODE_PAGE_FLIP_EVENT, &conn_id);
-        usleep(1000000);
-        if (++i == 3) {
-            i = 0;
-        }
-    }
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&](){
+        release_fb(fd, &buf);
+        drmModeFreeConnector(conn);
+        drmModeFreeResources(res);
+        close(fd);
+    });
 
-    release_fb(fd, &buf);
-    drmModeFreeConnector(conn);
-    drmModeFreeResources(res);
 
-    close(fd);
     return app.exec();
 }
